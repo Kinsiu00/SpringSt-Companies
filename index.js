@@ -114,8 +114,8 @@ app.get('/', (req, res, next) => {
         //         res.json(result[0])
         //     })
 
-        const util = require('util')
-        // console.log(util.inspect(response.data, false, null))
+        const { inspect } = require('util')
+        // console.log(inspect(response.data, false, null))
         let logoResponse = response.data.responses[0]
         let logoResults = null
         let searchTerm = null
