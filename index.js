@@ -123,20 +123,23 @@ app.get('/', (req, res, next) => {
         if(logoResponse.logoAnnotations){
             console.log('logo')
             logoResults = logoResponse.logoAnnotations
+            searchTermRaw = logoResponse.logoAnnotations[0].description;
+            searchTerm = searchTermRaw.toLowerCase()
+            console.log('searchTerm: ' + searchTerm)
+            
         } else {
             console.log('text')
             logoResults = logoResponse.textAnnotations
+            searchTermRaw = logoResults === undefined? 'Not Found' : logoResponse.textAnnotations[0].description;
+            searchTerm = searchTermRaw.toLowerCase().replace(/\s/g,'')
+            console.log('searchTerm: ' + searchTerm)
         }
 
-        if(logoResponse.logoAnnotations){
-             searchTerm = logoResponse.logoAnnotations[0].description;
-            console.log(searchTerm)
-        } else {
-             searchTerm = logoResponse.textAnnotations[0].description;
-            console.log(searchTerm)
-        }
-
-        res.json(searchTerm)
+        knex('companies').where('label', searchTerm).then(result => {
+        const { inspect } = require('util')
+        console.log(inspect(result, false, null))
+            // res.json(result)
+        })
 
 
                 })

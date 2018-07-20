@@ -3,9 +3,12 @@ exports.up = function(knex, Promise) {
         table.increments();
         table.string('label');
         table.string('name');
-        table.string('tags');
-        table.string('description');
-        table.string('image')
+        table.string('description', 500);
+        table.string('image');
+        table.string('website');
+        table.string('facebook');
+        table.string('twitter');
+        table.string('linkedin');
         table.timestamps(true,true);
     })
 };
