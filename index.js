@@ -138,10 +138,21 @@ app.get('/', (req, res, next) => {
         knex('companies').where('label', searchTerm).then(result => {
         const { inspect } = require('util')
         console.log(inspect(result, false, null))
-            // res.json(result)
+        if (!result.length){
+            console.log('alias match')
+            knex.from('companies').innerJoin('alias', 'alias.company_id', 'companies.id')
+            .where('alias.label', searchTerm)
+            .then(result => {
+                console.log(inspect(result, false, null))
+                res.json(result)
+
+            })
+        }
+        else{
+            console.log('text match found')
+            res.json(result)
+        }
         })
-
-
                 })
         .catch(error => {
             console.log(error)
