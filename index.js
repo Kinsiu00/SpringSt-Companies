@@ -73,16 +73,13 @@ app.get('/', (req, res, next) => {
         let logoResponse = response.data.responses[0]
         let logoResults = null
         let searchTerm = null
-        let knexReply = []
-
 
 
         //IF LOGO IS RECOGNIZED
         if(logoResponse.logoAnnotations){
             console.log('logo')
             logoResults = logoResponse.logoAnnotations
-            searchTermRaw = logoResponse.logoAnnotations[0].description;
-            searchTerm = searchTermRaw.toLowerCase()
+            searchTerm = logoResponse.logoAnnotations[0].description.toLowerCase();
             console.log('searchTerm: ' + searchTerm)
 
         //IF TEXT IS RECOGNIZED
@@ -94,57 +91,60 @@ app.get('/', (req, res, next) => {
             console.log('searchTerm: ' + searchTerm)
         }
 
-        //KNEX METHODS
-
-        // knex.from('companies').leftJoin('alias', 'alias.company_id', 'companies.id')
-        // .where('companies.label', 'like', `%${searchTerm}%`)
-        // .orWhere('alias.label', 'like', `%${searchTerm}%`)
-        // .then(result=> {
-        //   const { inspect } = require('util')
-        // console.log(inspect(result, false, null))
-        //     res.json(result)
-        // })
+        //KNEX SEARCHING LOGIC
 
 
         knex('companies').where('label', searchTerm).then(result => {
-        const { inspect } = require('util')
 
-            if (!result.length){
+            if(result.length) {
                 console.log(result)
-                console.log('text not found, execute alias match')
+                res.json(result);
+            }
+            else if(!result.length){
+                console.log('text match not found, alias match execute')
                 knex.from('companies').innerJoin('alias', 'alias.company_id', 'companies.id')
                 .where('alias.label', searchTerm)
                 .then(result1 => {
-                    
-                    if(!result1.length){
-                        console.log('alias not found, execute partial match on '+ searchTerm)
+                    if(result1.length){
+                        console.log(result1)
+                        res.json(result1)
+                    }
+                    else if(!result1.length){
+                        console.log('alias not found, partial match execute')
                         knex.from('companies')
                         .leftJoin('alias', 'alias.company_id', 'companies.id')
                         .where('companies.label', 'like', `%${searchTerm}%`)
                         .orWhere('alias.label', 'like', `%${searchTerm}%`)
                         .then(result2 => {
-                            console.log('PARTIAL LAYER 3')
-                            knexReply = result2
+                            if(result2.length){
+                                console.log(result2)
 
+                                //FANCY REDUCE METHOD TO RID OF DUPLICATES BASED ON COMPANY_ID
+                                
+                                let answer = result2.reduce((accumulator, current) => {
+                                    const found = accumulator.find(ele => {
+                                      if(current.company_id === ele.company_id){
+                                        return true;
+                                      }
+                                    })
+                                      if (!found) {
+                                          accumulator.push(current);
+                                      }
+                                      return accumulator;
+                                  }, []);
+                                  console.log(answer)
+                                res.json(answer)
+                            }
+                            else{
+                                console.log('nothing found :(')
+                                reply = 'Nothing Found.'
+                            }
                         })
                     }
-                console.log('ALIAS LAYER 2')
-                console.log('result 1 ' + inspect(result1, false, null))
-                knexReply = result1
-                console.log(inspect(knexReply, false, null))
-
-
-
-                })
+                }) 
             }
-            else{
-                console.log('TEXT LAYER 1')
-                console.log('text match found')
-                knexReply = result
-            }
-
-            res.json(knexReply)
         })
+
 
                 })
         .catch(error => {
