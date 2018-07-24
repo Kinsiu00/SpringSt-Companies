@@ -27,44 +27,6 @@ app.post('/companies', (req, res, next) => {
     })
   })
 
-// app.post('/vision', (req, res, next) => {
-//     console.log(req.body)
-//     const road = `https://vision.googleapis.com/v1/images:annotate?key=${key}`
-//     const picture = req.body.image
-//     const payload = {
-//         "requests":[
-//           {
-// 			"image":{
-//         		"source":{
-//                     "imageUri": picture
-//                 }
-//         	},
-//             "features":[
-//               {
-//                 "type":"LOGO_DETECTION",
-//                 "maxResults":1
-//               }
-//             ]
-//           }
-//         ]
-//       }
-    
-//     axios.post(road, payload)
-//         .then(response => {
-//            const descriptions = response.data.responses[0].logoAnnotations.map(label => {
-//                 return label.description
-//             });
-//             knex('companies').where('name', descriptions[0]).then(result => {
-//                 console.log(result[0])
-//                 res.json(result[0])
-//             })
-//                 })
-//         .catch(error => {
-//             console.log(error)
-//         })
-// })
-  
-  
   app.delete('/companies/:id', (req, res, next) => {
     knex('companies')
         .del()
@@ -78,7 +40,7 @@ app.get('/', (req, res, next) => {
     const index = path.join(__dirname, '../client-logo/public/index.html')
     res.sendFile(index)
   })
-
+//GOOGLE VISION MAGIC
   app.post('/vision', (req, res, next) => {
     const road = `https://vision.googleapis.com/v1/images:annotate?key=${key}`
     const picture = req.body.image.slice(23)
@@ -106,27 +68,24 @@ app.get('/', (req, res, next) => {
     
     axios.post(road, payload)
         .then(response => {
-        //    const descriptions = response.data.responses[0].logoAnnotations.map(label => {
-        //         return label.description
-        //     });
-        //     knex('companies').where('name', descriptions[0]).then(result => {
-        //         console.log(result[0])
-        //         res.json(result[0])
-        //     })
 
         const { inspect } = require('util')
-        // console.log(inspect(response.data, false, null))
         let logoResponse = response.data.responses[0]
         let logoResults = null
         let searchTerm = null
+        let knexReply = []
 
+
+
+        //IF LOGO IS RECOGNIZED
         if(logoResponse.logoAnnotations){
             console.log('logo')
             logoResults = logoResponse.logoAnnotations
             searchTermRaw = logoResponse.logoAnnotations[0].description;
             searchTerm = searchTermRaw.toLowerCase()
             console.log('searchTerm: ' + searchTerm)
-            
+
+        //IF TEXT IS RECOGNIZED
         } else {
             console.log('text')
             logoResults = logoResponse.textAnnotations
@@ -135,24 +94,58 @@ app.get('/', (req, res, next) => {
             console.log('searchTerm: ' + searchTerm)
         }
 
+        //KNEX METHODS
+
+        // knex.from('companies').leftJoin('alias', 'alias.company_id', 'companies.id')
+        // .where('companies.label', 'like', `%${searchTerm}%`)
+        // .orWhere('alias.label', 'like', `%${searchTerm}%`)
+        // .then(result=> {
+        //   const { inspect } = require('util')
+        // console.log(inspect(result, false, null))
+        //     res.json(result)
+        // })
+
+
         knex('companies').where('label', searchTerm).then(result => {
         const { inspect } = require('util')
-        console.log(inspect(result, false, null))
-        if (!result.length){
-            console.log('alias match')
-            knex.from('companies').innerJoin('alias', 'alias.company_id', 'companies.id')
-            .where('alias.label', searchTerm)
-            .then(result => {
-                console.log(inspect(result, false, null))
-                res.json(result)
 
-            })
-        }
-        else{
-            console.log('text match found')
-            res.json(result)
-        }
+            if (!result.length){
+                console.log(result)
+                console.log('text not found, execute alias match')
+                knex.from('companies').innerJoin('alias', 'alias.company_id', 'companies.id')
+                .where('alias.label', searchTerm)
+                .then(result1 => {
+                    
+                    if(!result1.length){
+                        console.log('alias not found, execute partial match on '+ searchTerm)
+                        knex.from('companies')
+                        .leftJoin('alias', 'alias.company_id', 'companies.id')
+                        .where('companies.label', 'like', `%${searchTerm}%`)
+                        .orWhere('alias.label', 'like', `%${searchTerm}%`)
+                        .then(result2 => {
+                            console.log('PARTIAL LAYER 3')
+                            knexReply = result2
+
+                        })
+                    }
+                console.log('ALIAS LAYER 2')
+                console.log('result 1 ' + inspect(result1, false, null))
+                knexReply = result1
+                console.log(inspect(knexReply, false, null))
+
+
+
+                })
+            }
+            else{
+                console.log('TEXT LAYER 1')
+                console.log('text match found')
+                knexReply = result
+            }
+
+            res.json(knexReply)
         })
+
                 })
         .catch(error => {
             console.log(error)
